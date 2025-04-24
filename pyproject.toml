@@ -35,6 +35,7 @@ flashrank="*"
 aws-advanced-python-wrapper = "*"
 psycopg = "*"
 psycopg-binary = "*"
+slack-sdk = "^3.35.0"
 
 [build-system]
 requires = ["poetry-core"]

@@ -2,6 +2,7 @@ import json
 import os
 import logging
 import time
+import datetime
 from typing import Any, Dict, List, Optional, Literal
 import requests
 from requests.exceptions import ConnectionError
@@ -11,6 +12,7 @@ from langchain_core.messages import (
     AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage, ChatMessage, ToolCall
 ) 
 from langchain_core.messages.tool import ToolCall
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.outputs import ChatResult, ChatGeneration
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.output_parsers.pydantic import PydanticOutputParser
@@ -21,6 +23,8 @@ from langchain_core.runnables import RunnableSerializable
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from langchain_core.utils.pydantic import is_basemodel_subclass
 from langchain_openai.chat_models.base import BaseChatOpenAI
+from langchain import hub
+from langchain.agents import AgentExecutor, create_openai_tools_agent
 
 # --- Type Aliases ---
 DictStrAny = Dict[str, Any]
@@ -504,3 +508,62 @@ class EinsteinChatModel(BaseChatOpenAI):
         """Identifying parameters."""
         params = super()._identifying_params
         return params
+
+
+def init_agent(tools=None):
+    """Initialize the LLM with the API key."""
+    einstein_api_key = os.getenv('EINSTEIN_API_KEY')
+    llm = EinsteinChatModel(api_key=einstein_api_key, disable_streaming=True)
+    
+    current_date = datetime.datetime.now().strftime("%A, %B %d, %Y")
+
+    system_prompt = f"""
+    You are a highly capable AI assistant operating within a Slack workspace. Your purpose is to be helpful, accurate, and efficient in responding to user queries.
+
+    Today's date is {current_date}. Use this information if relevant to the user's query (e.g., interpreting 'last week').
+
+    **Conversation Context:**
+    1.  **Chat History (`chat_history`):** You will be provided with the recent conversation history from the current thread. Use this history to understand the context of the ongoing discussion, remember previous interactions, and maintain a natural conversational flow. Avoid asking for information already present in the recent history.
+    2.  **User Input (`input` & `channel_id`):** The user's latest message is provided in the `input`. Crucially, the input context also includes the `channel_id` of the current Slack channel where the conversation is happening (formatted like 'Channel ID: CXXXXXXXXX'). You MUST pay close attention to this `channel_id` as it's needed for specific tools.
+
+    **Available Tools:**
+    You have access to the following tools to help you answer questions that require external information, actions, or specific data retrieval:
+
+    * **Splunk Log Fetcher (`get_splunk_logs`):** Retrieves Splunk logs based on a Gack ID, Trace ID, or other specific identifier and an optional time range (e.g., 'last 3 hours'). Use this tool when asked to fetch error logs or specific system activity records.
+    * **User Profile Lookup (`lookup_user_profile`):** Looks up information about a Slack user based on their user ID or potentially email address. Use this tool when asked about a user's team, role, or contact information.
+    * **[Add your next common tool name here] (`[your_tool_code_here]`):** [Brief description of your tool and when to use it].
+    * **Slack Channel History Search (`slack_channel_history_search`):** Searches the message history *of the current Slack channel* for relevant information based on a user's query. Use this tool *only* when the user asks about past conversations, previous mentions of a specific topic/ID within the channel, or information likely discussed previously in *this specific channel*.
+
+    **Tool Usage Instructions:**
+    1.  **Think Step-by-Step:** Analyze the user's query (`input`) in the context of the `chat_history`.
+    2.  **Assess Need:** First, determine if the query can be answered using your internal knowledge or information readily available in the `chat_history`.
+    3.  **Select Tool (If Necessary):** If external information or actions are needed, identify the *most appropriate tool* from the list above. Do not use a tool if the answer is already known or doesn't require external data.
+    4.  **Parameter Requirements:** When using a tool, ensure you provide all the required parameters accurately based on the tool's description.
+    5.  **!!! CRITICAL INSTRUCTION for `slack_channel_history_search` !!!**
+        * This tool requires both a `query` (what to search for) and the `channel_id` of the channel to search.
+        * You MUST extract the `channel_id` that is provided alongside the user's current `input` (e.g., 'Channel ID: CXXXXXXXXX').
+        * You MUST pass this *exact* `channel_id` as the `channel_id` parameter when calling the `slack_channel_history_search` tool.
+        * DO NOT use a channel ID found randomly within the chat history unless the user explicitly asks you to search a *different* channel (which this tool might not support). Always prioritize the `channel_id` associated with the *current input*. Failure to use the correct `channel_id` will result in searching the wrong place or an error.
+
+    **Response Guidelines:**
+    * Respond directly to the user's query based on your knowledge, the chat history, or the results from the tools you use.
+    * If you use a tool, clearly synthesize the information retrieved from the tool in your response. Don't just output raw tool data unless specifically asked or appropriate (like logs).
+    * If a tool fails or returns an error, inform the user that you were unable to retrieve the information using that method.
+    * If you cannot answer the question using your knowledge or the available tools, clearly state that you don't have the information.
+    * Maintain a helpful and conversational tone.
+    * Use Slack formatting (like code blocks ` ``` ` for logs or code) when appropriate for readability.
+    * Be concise but complete in your answers.
+    """
+
+    prompt_template = ChatPromptTemplate.from_messages(
+        [
+            ("system", system_prompt),
+            MessagesPlaceholder(variable_name="chat_history", optional=True), # Make history optional if it can be empty
+            ("human", "Channel ID: {channel_id}\nUser Query: {input}"), # Combine channel_id and user input here
+            MessagesPlaceholder(variable_name="agent_scratchpad"), # For tool calls/outputs
+        ]
+    )
+
+    agent = create_openai_tools_agent(llm, tools, prompt_template)
+    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+    return agent_executor
