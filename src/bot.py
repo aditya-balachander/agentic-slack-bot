@@ -1,8 +1,11 @@
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
+from dotenv import load_dotenv
+import os
+load_dotenv()
 
-SLACK_BOT_TOKEN="xoxb-8790763695429-8777895148167-LFqn0WGMCmtzUOCOSdo1EYCC"
-SLACK_APP_TOKEN="xapp-1-A08PEMRATUL-8796347222451-6adff9fdad6477e955e945590d5b1944f68d5b1f81293af655d54f462625c51d"
+SLACK_BOT_TOKEN=os.getenv("SLACK_BOT_TOKEN")
+SLACK_APP_TOKEN=os.getenv("SLACK_APP_TOKEN")
 
 app=App(token=SLACK_BOT_TOKEN)
 try:
@@ -15,7 +18,7 @@ except Exception as e:
 @app.event("app_mention")
 def mention_handler(body,say):
     print(body)
-    say('Hello World')
+    say('Hello! How can I help you?')
 
 if __name__=="__main__":
     handler=SocketModeHandler(app,SLACK_APP_TOKEN)
