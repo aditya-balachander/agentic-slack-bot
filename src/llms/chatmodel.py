@@ -504,36 +504,3 @@ class EinsteinChatModel(BaseChatOpenAI):
         """Identifying parameters."""
         params = super()._identifying_params
         return params
-    
-
-# --- Example Usage ---
-# if __name__ == "__main__":
-#     from langchain.pydantic_v1 import BaseModel, Field
-#     from langchain.tools import BaseTool, StructuredTool, tool
-#     from langchain import hub
-#     from langchain.agents import AgentExecutor, create_react_agent
-#     from langchain_openai import OpenAI
-
-#     # --- Define Tool ---
-#     class WeatherToolInput(BaseModel):
-#         city: str = Field(description="Name of the city to get weather for.", examples=["New York", "Los Angeles"])
-
-#     @tool("weather-tool", args_schema=WeatherToolInput, return_direct=False)
-#     def weather(city: str) -> str:
-#         """Get the weather for a given city."""
-#         if city.lower() == "new york":
-#             return "It's sunny in New York!"
-#         elif city.lower() == "los angeles":
-#             return "It's sunny in Los Angeles!"
-#         else:
-#             return f"Sorry, I don't have weather information for {city}."
-
-#     tools = [weather]
-
-#     # --- Run Model with Tool ---
-#     api_key = os.environ.get("EINSTEIN_API_KEY")
-#     llm = EinsteinChatModel(api_key=api_key, disable_streaming=True)
-#     prompt = hub.pull("hwchase17/react")
-#     agent = create_react_agent(llm, tools, prompt)
-#     agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
-#     agent_executor.invoke({"input": "what is the weather in new york?"})
