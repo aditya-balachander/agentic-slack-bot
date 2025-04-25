@@ -14,6 +14,7 @@ from src.tools.vector_store_manager import VectorStoreManager
 from src.tools.slack_search_tool import SlackChannelHistorySearchTool
 from src.tools.slack_loader import _create_document_from_slack_message
 from src.llms.embeddings import EinsteinEmbeddings, MODEL
+from src.tools.confluence_search_tool import ConfluenceSearchTool
 
 # --- Basic Logging Setup ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -23,6 +24,17 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
 SLACK_APP_TOKEN = os.getenv("SLACK_APP_TOKEN")
+
+# Confluence Config
+CONFLUENCE_URL = os.getenv("CONFLUENCE_URL")
+CONFLUENCE_TOKEN = os.getenv("CONFLUENCE_API_TOKEN")
+CONFLUENCE_PAGE_URLS_STR = os.getenv("CONFLUENCE_PAGE_URLS")
+confluence_urls = []
+if CONFLUENCE_PAGE_URLS_STR:
+    confluence_urls = [url.strip() for url in CONFLUENCE_PAGE_URLS_STR.split(',')]
+    logger.info(f"Loaded {len(confluence_urls)} Confluence URLs from environment.")
+else:
+    logger.warning("CONFLUENCE_PAGE_URLS environment variable not set or empty.")
 
 # Initialize Bolt app
 app = App(token=SLACK_BOT_TOKEN)
@@ -50,13 +62,21 @@ except Exception as e:
 vector_store_manager = VectorStoreManager(
     embeddings=embeddings,
     slack_client=app.client,
-    bot_user_id=bot_user_id
+    bot_user_id=bot_user_id,
+    confluence_urls=confluence_urls
 )
+print(all([CONFLUENCE_URL, CONFLUENCE_TOKEN]))
+if confluence_urls and all([CONFLUENCE_URL, CONFLUENCE_TOKEN]):
+     logger.info("Attempting to initialize Confluence vector store on startup...")
+     vector_store_manager.initialize_confluence_store() # Load from disk or build
+else:
+     logger.warning("Skipping Confluence store initialization due to missing config/URLs.")
 
 # --- Initialize Tools ---
 # Combine your common tools with the new Slack search tool
 slack_search_tool = SlackChannelHistorySearchTool(vector_store_manager=vector_store_manager)
-ALL_TOOLS = COMMON_TOOLS + [slack_search_tool]
+confluence_search_tool = ConfluenceSearchTool(vector_store_manager=vector_store_manager)
+ALL_TOOLS = COMMON_TOOLS + [slack_search_tool, confluence_search_tool]
 logger.info(f"Initialized tools: {[tool.name for tool in ALL_TOOLS]}")
 
 # --- Agent Initialization ---
@@ -86,7 +106,7 @@ def message_handler(message, logger):
 
     try:
         message_doc = _create_document_from_slack_message(message, channel_id, app.client)
-        vector_store_manager.add_message(channel_id, message_doc)
+        vector_store_manager.add_slack_message(channel_id, message_doc)
     except Exception as e:
         logger.exception(f"Error processing message for vector store in {channel_id}: {e}")
 

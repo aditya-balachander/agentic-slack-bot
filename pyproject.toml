@@ -36,6 +36,8 @@ aws-advanced-python-wrapper = "*"
 psycopg = "*"
 psycopg-binary = "*"
 slack-sdk = "^3.35.0"
+atlassian-python-api = "^4.0.3"
+html2text = "^2025.4.15"
 
 [build-system]
 requires = ["poetry-core"]
