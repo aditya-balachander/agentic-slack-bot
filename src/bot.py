@@ -105,8 +105,7 @@ def message_handler(message, logger):
     logger.info(f"Received user message in {channel_id} from {user_id} at {message_ts}. Processing for vector store.")
 
     try:
-        message_doc = _create_document_from_slack_message(message, channel_id, app.client)
-        vector_store_manager.add_slack_message(channel_id, message_doc)
+        vector_store_manager.add_slack_message(channel_id, message)
     except Exception as e:
         logger.exception(f"Error processing message for vector store in {channel_id}: {e}")
 

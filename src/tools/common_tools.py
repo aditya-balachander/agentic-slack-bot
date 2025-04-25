@@ -34,12 +34,13 @@ class GusWorkItemInput(BaseModel):
     workdetails: Optional[str] = Field(description="The detailed description of the GUS work item.",examples=["creating hack project"])
     useremail: Optional[str] = Field(description="Email Id of the user.",examples=["ankita.tiwari@salesforce.com"])
 @tool("gus-wi-tool", args_schema=GusWorkItemInput, return_direct=False)
-def create_story(json_input: str)-> str:
+def create_story(worksubject: str, workdetails: str = None, useremail: str = None)-> str:
     """Use this tool with arguments like "{{"worksubject": str, "workdetails": str,"useremail": str }}" when you need to Create the GUS Work Item  based on the subject and description."""
-    json_input = json.loads(json_input)
-    worksubject = json_input.get("worksubject")
-    workdetails = json_input.get("workdetails")
-    useremail = json_input.get("useremail")
+    if not workdetails and not useremail:
+        json_input = json.loads(worksubject)
+        worksubject = json_input.get("worksubject")
+        workdetails = json_input.get("workdetails")
+        useremail = json_input.get("useremail")
     if(os.getenv('GUS_DISABLE_WORK_ITEM',"true") == 'false'):
         try:
             # industriesObj=Industries()
