@@ -30,11 +30,11 @@ class SlackChannelHistorySearchTool(BaseTool):
         if not channel_id:
              return "Error: Channel ID was not provided. Cannot search history."
 
-        retriever = self.vector_store_manager.get_retriever(channel_id)
+        retriever = self.vector_store_manager.get_slack_retriever(channel_id)
         if not retriever:
             # Attempt initialization if retriever wasn't ready (e.g., first message in channel)
-            self.vector_store_manager.initialize_channel_store(channel_id)
-            retriever = self.vector_store_manager.get_retriever(channel_id)
+            self.vector_store_manager.initialize_slack_channel_store(channel_id)
+            retriever = self.vector_store_manager.get_slack_retriever(channel_id)
 
         if not retriever:
             return f"Error: Could not access or initialize message history for channel {channel_id}."
@@ -78,11 +78,11 @@ class SlackChannelHistorySearchTool(BaseTool):
         if not channel_id:
              return "Error: Channel ID was not provided. Cannot search history."
 
-        retriever = self.vector_store_manager.get_retriever(channel_id)
+        retriever = self.vector_store_manager.get_slack_retriever(channel_id)
         if not retriever:
             # Async initialization might be complex, doing sync here for simplicity
-            self.vector_store_manager.initialize_channel_store(channel_id)
-            retriever = self.vector_store_manager.get_retriever(channel_id)
+            self.vector_store_manager.initialize_slack_channel_store(channel_id)
+            retriever = self.vector_store_manager.get_slack_retriever(channel_id)
 
         if not retriever:
             return f"Error: Could not access or initialize message history for channel {channel_id} (async)."
