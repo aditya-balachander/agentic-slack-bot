@@ -123,6 +123,18 @@ def mention_handler(event, say, client, logger):
     text = event.get('text', '')
     message_ts = event.get('ts') # Timestamp of the user's message
     thread_ts = event.get('thread_ts', None) # Timestamp of the thread (if exists)
+    user_email = None 
+
+    try:
+        # Call the users.info method using the WebClient
+        result = client.users_info(user=user_id)
+        if result and result.get('user') and result['user'].get('profile'):
+            user_email = result['user']['profile'].get('email')
+            logger.info(f"Fetched email for user {user_id}: {user_email}")
+        else:
+            logger.warning(f"Could not fetch email for user {user_id}: Incomplete user info received.")
+    except SlackApiError as e:
+        logger.error(f"Error fetching user info: {e}")
 
     # --- 1. Add initial reaction ---
     try:
@@ -192,6 +204,7 @@ def mention_handler(event, say, client, logger):
                     "input": input_text,
                     "chat_history": chat_history,
                     "channel_id": channel_id,
+                    "user_email": user_email
                 })
 
                 # --- 4. Parse output ---

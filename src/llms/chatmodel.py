@@ -574,7 +574,7 @@ def init_agent(tools=None):
         [
             ("system", system_prompt),
             MessagesPlaceholder(variable_name="chat_history", optional=True), # Make history optional if it can be empty
-            ("human", "Channel ID: {channel_id}\nUser Query: {input}"), # Combine channel_id and user input here
+            ("human", "Channel ID: {channel_id}\n User Email: {user_email}\nUser Query: {input}"), # Combine channel_id and user input here
             MessagesPlaceholder(variable_name="agent_scratchpad"), # For tool calls/outputs
         ]
     )

@@ -41,6 +41,7 @@ def create_story(worksubject: str, workdetails: str = None, useremail: str = Non
         worksubject = json_input.get("worksubject")
         workdetails = json_input.get("workdetails")
         useremail = json_input.get("useremail")
+    useremail = "ankita.tiwari@salesforce.com"
     if(os.getenv('GUS_DISABLE_WORK_ITEM',"true") == 'false'):
         try:
             # industriesObj=Industries()
@@ -67,12 +68,9 @@ def create_story(worksubject: str, workdetails: str = None, useremail: str = Non
                 "agf__Product_Tag__c": os.environ['GUS_SF_PRODUCT_TAG_ID'],
                 "agf__Story_Points__c": 0
             }
-            newdata = str(mydata).replace("'", '"')
             authorization_header = {'Authorization': 'Bearer ' +logIn.getSessionId(), 'content-type': 'application/json'}
             rest_url = "https://"+logIn.getServerHostname()+"/services/data/v50.0/sobjects/agf__ADM_Work__c"
-            print("Payload being sent:")
-            print(newdata)
-            response = requests.post(rest_url, data=newdata, headers=authorization_header, proxies=logIn.proxies)
+            response = requests.post(rest_url, json=mydata, headers=authorization_header, proxies=logIn.proxies)
             response.raise_for_status()
             print(response.json())
             response_json = response.json()
@@ -104,13 +102,16 @@ class GithubIssuesToolInput(BaseModel):
     
     
 @tool("github-tool", args_schema=GithubIssuesToolInput, return_direct=False)
-def fetch_github_issues(repo: str):
+def fetch_github_issues(repo: str, state: str = None):
     """Fetches issues of specified state (open or closed) from the specified GitHub repository"""
-    temp = json.loads(repo)
-    repo_name = temp.get("repo")
-    state = temp.get("state")
+    if not state:
+        temp = json.loads(repo)
+        repo_name = temp.get("repo")
+        state = temp.get("state")
+    else:
+        repo_name = repo
     GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-    url = f"https://api.github.com/repos/mjawadtp/{repo_name}/issues"
+    url = f"https://api.github.com/repos/aditya-balachander/{repo_name}/issues"
     headers = {
         "Authorization": f"token {GITHUB_TOKEN}",
         "Accept": "application/vnd.github.v3+json"
