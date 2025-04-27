@@ -127,6 +127,48 @@ def fetch_github_issues(repo: str, state: str = None):
     else:
         raise Exception(f"Failed to fetch issues: {response.status_code} - {response.text}")
 
+class SplunkGackInput(BaseModel):
+    gack_id: str = Field(description="The Gack ID to fetch logs for", examples=["GACK-12345", "GACK-98765"])
+
+@tool("splunk-gack-logs", args_schema=SplunkGackInput, return_direct=False)
+def fetch_splunk_gack_logs(gack_id: str) -> str:
+    """Fetch logs for a Gack ID from Splunk (mocked response)."""
+    # Sample logs - in reality you'd fetch from Splunk
+    sample_logs = f"""
+    [INFO] 2025-04-25 12:32:10,321 [req-78b1] Starting request for Gack ID {gack_id}
+    [DEBUG] 2025-04-25 12:32:10,322 [req-78b1] Request metadata: {{ "user": "mjawadtp", "org": "00Dxx0000001gYk", "action": "ProcessCase" }}
+
+    [ERROR] 2025-04-25 12:32:12,104 [req-78b1] java.lang.RuntimeException: Unexpected server error while processing request
+        at com.salesforce.core.workflow.Engine.execute(Engine.java:174)
+        at com.salesforce.core.workflow.Engine.run(Engine.java:102)
+        at com.salesforce.api.controller.GackController.handle(GackController.java:58)
+        at com.salesforce.api.controller.GackController$$FastClassBySpringCGLIB$$e2f4f3d4.invoke(<generated>)
+        at org.springframework.cglib.proxy.MethodProxy.invoke(MethodProxy.java:218)
+        at org.springframework.aop.framework.CglibAopProxy$CglibMethodInvocation.invokeJoinpoint(CglibAopProxy.java:793)
+        at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:163)
+        at org.springframework.transaction.interceptor.TransactionInterceptor.invoke(TransactionInterceptor.java:123)
+        at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:186)
+        at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:688)
+    Caused by: java.lang.NullPointerException: Cannot invoke "String.trim()" because "inputData" is null
+        at com.salesforce.data.transform.TransformService.process(TransformService.java:98)
+        at com.salesforce.data.transform.TransformService.transform(TransformService.java:61)
+        at com.salesforce.engine.steps.TransformStep.execute(TransformStep.java:34)
+        at com.salesforce.engine.workflow.StandardWorkflow.executeStep(StandardWorkflow.java:89)
+        at com.salesforce.engine.workflow.StandardWorkflow.run(StandardWorkflow.java:45)
+        at com.salesforce.core.workflow.Engine.execute(Engine.java:172)
+        ... 10 more
+
+    [DEBUG] 2025-04-25 12:32:13,110 [req-78b1] Retrying workflow for Gack ID {gack_id}, attempt 2
+    [ERROR] 2025-04-25 12:32:15,882 [req-78b1] TimeoutException: External API call exceeded timeout of 3000ms
+        at com.salesforce.external.ExternalServiceClient.call(ExternalServiceClient.java:54)
+        at com.salesforce.engine.steps.ExternalAPIStep.execute(ExternalAPIStep.java:29)
+        at com.salesforce.engine.workflow.StandardWorkflow.executeStep(StandardWorkflow.java:93)
+
+    [INFO] 2025-04-25 12:32:18,001 [req-78b1] Gack ID {gack_id} logged and escalated to engineering
+    """
+    return sample_logs.strip()
+
+
 COMMON_TOOLS = [
     weather,
     fetch_github_issues,
