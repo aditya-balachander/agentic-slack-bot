@@ -99,6 +99,10 @@ def message_handler(message, logger):
     subtype = message.get('subtype')
     text = message.get('text', '')
 
+    if user_id == bot_user_id:
+        logger.info(f"Message from bot itself in {channel_id}. Ignoring.")
+        return
+
     if not text or subtype in ['bot_message', 'channel_join', 'channel_leave', 'message_deleted', 'message_changed']:
         return
 
@@ -282,6 +286,7 @@ def mention_handler(event, say, client, logger):
 
     finally:
         # --- 5. Remove the eyes reaction ---
+        vector_store_manager.add_slack_message(channel_id, message)
         try:
             client.reactions_remove(
                 channel=channel_id,
