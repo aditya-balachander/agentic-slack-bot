@@ -126,6 +126,141 @@ def fetch_github_issues(repo: str, state: str = None):
         return response.json()
     else:
         raise Exception(f"Failed to fetch issues: {response.status_code} - {response.text}")
+    
+class SplunkGackInput(BaseModel):
+    """Input schema for the Splunk Gack Log fetcher tool."""
+    gack_id: str = Field(
+        description="The Gack ID to fetch logs for.",
+        examples=["g-12345", "g-98765"] # Adjusted example format
+    )
+    earliest_time: str = Field(
+        default="-3h",
+        description="The earliest time for the search window (Splunk relative time format). Defaults to 3 hours ago.",
+        examples=["-1h", "-15m", "-1d"]
+    )
+    latest_time: str = Field(
+        default="now",
+        description="The latest time for the search window (Splunk relative time format). Defaults to now.",
+        examples=["now", "-5m"]
+    )
+    max_results: int = Field(
+        default=100,
+        description="Maximum number of log events to return.",
+        examples=[50, 200]
+    )
+
+# --- Tool Implementation ---
+@tool("splunk-gack-logs", args_schema=SplunkGackInput, return_direct=False)
+def fetch_splunk_gack_logs(gack_id: str, earliest_time: str = "-3h", latest_time: str = "now", max_results: int = 100) -> str:
+    """
+    Fetches logs for a specific Gack ID from Splunk within a given time range.
+    Requires SPLUNK_HOST, SPLUNK_PORT, SPLUNK_USERNAME, SPLUNK_PASSWORD
+    environment variables to be set. Optionally uses SPLUNK_INDEX and SPLUNK_SOURCETYPE.
+    """
+    logger.info(f"Attempting to fetch Splunk logs for Gack ID: {gack_id}, Time: {earliest_time} to {latest_time}")
+
+    # --- Load Configuration ---
+    splunk_host = os.getenv("SPLUNK_HOST")
+    splunk_port = os.getenv("SPLUNK_PORT")
+    splunk_user = os.getenv("SPLUNK_USERNAME")
+    splunk_pass = os.getenv("SPLUNK_PASSWORD") # Consider using tokens if possible
+
+    if not all([splunk_host, splunk_port, splunk_user, splunk_pass]):
+        error_msg = "Splunk connection details (HOST, PORT, USERNAME, PASSWORD) missing in environment variables."
+        logger.error(error_msg)
+        return f"Error: {error_msg}"
+
+    # Optional index and sourcetype for more targeted search
+    splunk_index = os.getenv("SPLUNK_INDEX", "*") # Default to all indexes if not set
+    splunk_sourcetype = os.getenv("SPLUNK_SOURCETYPE", "*") # Default to all sourcetypes if not set
+
+    # --- Connect to Splunk ---
+    try:
+        service = client.connect(
+            host=splunk_host,
+            port=splunk_port,
+            username=splunk_user,
+            password=splunk_pass
+            # Add other connection args if needed (e.g., scheme='https', verify=False for self-signed certs - insecure!)
+        )
+        logger.info(f"Successfully connected to Splunk service at {splunk_host}:{splunk_port}")
+    except Exception as e:
+        error_msg = f"Failed to connect to Splunk: {e}"
+        logger.exception(error_msg) # Log full traceback
+        return f"Error: {error_msg}"
+
+    # --- Construct and Execute Search Query ---
+    # Basic query structure - adjust index, sourcetype, and fields as needed
+    # Using f-string requires careful handling of quotes if gack_id could contain them
+    # Ensure gack_id is properly escaped if necessary, though usually safe for typical IDs
+    search_query = f'search index="{splunk_index}" sourcetype="{splunk_sourcetype}" "{gack_id}"'
+    # Add time constraints and limit results
+    search_query += f' | head {max_results}' # Limit results early
+    # Add fields to display if needed, _raw shows the full event
+    # search_query += ' | table _time, _raw, host, source'
+
+    kwargs_search = {
+        "earliest_time": earliest_time,
+        "latest_time": latest_time,
+        "exec_mode": "blocking" # Run the search synchronously
+    }
+
+    try:
+        logger.info(f"Executing Splunk search: {search_query} with time range {earliest_time} to {latest_time}")
+        # Start the job
+        job = service.jobs.create(search_query, **kwargs_search)
+        logger.info(f"Splunk search job created (SID: {job.sid}). Waiting for results...")
+
+        # Wait for the job to finish (already done with blocking mode)
+        # You could add a loop with status checks for normal mode
+
+        # --- Process Results ---
+        result_count = int(job["resultCount"])
+        logger.info(f"Search completed. Found {result_count} results.")
+
+        if result_count == 0:
+            return f"No Splunk logs found for Gack ID '{gack_id}' between {earliest_time} and {latest_time}."
+
+        log_entries = []
+        # Get results using the results reader
+        # Limiting here again just in case head didn't work as expected or for large result sets
+        rr = results.ResultsReader(job.results(count=max_results))
+        for result in rr:
+            if isinstance(result, results.Message):
+                # Log Splunk messages (e.g., warnings)
+                logger.warning(f"Splunk Message: {result.type} {result.message}")
+            elif isinstance(result, dict):
+                # Extract the raw log event
+                raw_log = result.get("_raw", "Log format does not contain _raw field.")
+                log_entries.append(raw_log)
+
+        if not log_entries:
+             return f"Found {result_count} results, but could not extract log content."
+
+        # Format the output string
+        output = f"Found {len(log_entries)} log events for Gack ID '{gack_id}' ({earliest_time} to {latest_time}):\n\n"
+        output += "\n".join(log_entries)
+        return output.strip()
+
+    except Exception as e:
+        error_msg = f"An error occurred during Splunk search or processing: {e}"
+        logger.exception(error_msg)
+        # Try to cancel the job if it exists
+        if 'job' in locals() and job:
+            try:
+                job.cancel()
+                logger.info(f"Cancelled Splunk job {job.sid}")
+            except Exception as cancel_e:
+                logger.error(f"Failed to cancel Splunk job {job.sid}: {cancel_e}")
+        return f"Error: {error_msg}"
+    finally:
+        # Ensure job is cancelled if it was created and might still be running
+        if 'job' in locals() and job and not job.is_done():
+             try:
+                  job.cancel()
+                  logger.info(f"Ensured cancellation of Splunk job {job.sid} in finally block.")
+             except Exception:
+                  pass # Ignore errors during final cleanup cancellation
 
 COMMON_TOOLS = [
     weather,
