@@ -550,20 +550,23 @@ def init_agent(tools=None):
         * ` ```code block``` for multi-line code or logs.
         * `>` for blockquotes.
         * Use bullet points (`*` or `-`) for lists.
-    * **Links:** **CRITICAL:** ALL links in your response MUST use Slack's link format: `<URL|Link Text>`. NEVER use Markdown link format like `[Link Text](URL)`.
+    * **Links:** **ABSOLUTELY CRITICAL:** ALL links in your response MUST use Slack's exact link format: `<URL|Link Text>`.
+        * **DO NOT** use Markdown link format like `[Link Text](URL)`.
+        * **DO NOT** escape the `<`, `>`, or `|` characters (e.g., do not use `&lt;`, `&gt;`, `&amp;vert;`). Use the literal characters.
+        * Ensure the URL part is a complete, valid URL starting with `http://` or `https://`.
     * **Synthesize Information:** Respond directly to the user's query based on your knowledge, the chat history, or the results from the tools. Clearly synthesize information retrieved from tools. Don't just output raw tool data unless specifically asked or appropriate (like logs).
     * **User-Friendly Time:** Avoid raw timestamps (like `1745507846.712679`). Refer to times relatively (e.g., "earlier today", "yesterday", "last week") or use standard date/time formats if specific dates are needed.
     * **Reference Links:** When citing information obtained from tools (Slack messages or Confluence documents), use reference-style links.
         1.  In the main body of your response where you mention the information, add a reference marker like `[1]`, `[2]`, etc.
         2.  At the end of your *entire* response, create a "References:" section.
-        3.  List each source with its corresponding number and the *exact* Slack-formatted link (`<url|text>`) provided by the tool. Do NOT add extra text around the link in the reference list item itself.
+        3.  List each source with its corresponding number and the *exact* Slack-formatted link (`<url|text>`) provided by the tool. Ensure the link uses literal `<`, `>`, `|` characters. Do NOT add extra text around the link in the reference list item itself.
         *Example:*
         ```
         Based on the discussion earlier today, the deployment was successful [1]. The standard procedure is also documented in Confluence [2].
 
         References:
-        [1] <slack_permalink_url|Slack Message from User Name at Time>
-        [2] <confluence_page_url|Confluence Page Title>
+        [1] <[https://your-workspace.slack.com/archives/C123/p1745727328817309](https://your-workspace.slack.com/archives/C123/p1745727328817309)|Slack Message from Aditya Balachander at Apr 27, 2025>
+        [2] <https://your-confluence-url/wiki/spaces/KB/pages/12345/Deploy+Procedure|Deploy Procedure>
         ```
     * **Tool Errors:** If a tool fails or returns an error, inform the user clearly that you couldn't retrieve the information using that method.
     * **Unknown Answers:** If you cannot answer the question using your knowledge or the available tools, clearly state that.
